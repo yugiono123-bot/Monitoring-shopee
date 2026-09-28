@@ -1,0 +1,69 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Monitoring Keuangan Shopee V4</title><style>*{box-sizing:border-box}body{margin:0;background:#f3f5f8;color:#202b35;font:14px Arial,sans-serif}header{background:linear-gradient(120deg,#ee4d2d,#ff7043);color:white;padding:20px 16px}h1{font-size:21px;margin:0 0 10px}main{max-width:900px;margin:auto;padding:12px}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.card,section{background:white;border-radius:14px;padding:14px;box-shadow:0 2px 9px #0000000a}.card small{display:block;color:#66727c;font-size:11px}.card strong{display:block;font-size:18px;margin-top:8px;overflow-wrap:anywhere}section{margin-top:13px}h2{margin:0 0 15px;font-size:17px}.tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-bottom:15px}.tabs button{font-size:11px;padding:10px 2px;background:#e9edf3;color:#27323b}.tabs button.active{background:#ee4d2d;color:white}label{display:block;font-size:12px;font-weight:bold;color:#5a6570;margin:12px 0 6px}input,select{width:100%;border:1px solid #d4dae0;border-radius:10px;padding:13px;font:15px Arial;background:white}button{border:0;border-radius:9px;background:#ee4d2d;color:white;padding:12px;cursor:pointer;font-weight:bold}button.full{width:100%;margin-top:15px}button.gray{background:#64748b}button.red{background:#ce3d38}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}.note{font-size:12px;color:#697480;line-height:1.5;margin:10px 0 0}.line{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #eef0f3;padding:9px 0}.line:last-child{border:0}.green{color:#168a49}.redtext{color:#cf3d38}.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:650px}td,th{border-bottom:1px solid #e8ebef;padding:10px 6px;text-align:left;font-size:12px}th{background:#f4f6f8}td button{padding:6px;font-size:11px}#search{margin:7px 0 10px}@media(max-width:430px){.card strong{font-size:15px}.tabs button{font-size:10px}h1{font-size:19px}}.filter-summary{margin:8px 0;padding:9px 11px;background:#fff7f3;border-radius:8px;font-size:12px;color:#555}.filter-summary b{color:#ee4d2d}
+</style></head><body>
+<header><h1>MONITORING KEUANGAN SHOPEE</h1><div id="clock"></div></header><main><div class="cards" id="cards"></div>
+<section><h2>Input Transaksi</h2><div class="tabs" id="tabs"><button class="active" data-type="modal">Modal</button><button data-type="paylater">PayLater</button><button data-type="masuk">Pemasukan</button><button data-type="keluar">Pengeluaran</button><button data-type="rrak">RRAK</button></div><form id="form"><label>KATEGORI</label><select id="kategori"></select><label>NOMINAL (Rp)</label><input type="number" id="nominal" min="1" step="1" required placeholder="Contoh: 15000"><label id="ketlabel">KETERANGAN</label><input id="keterangan" maxlength="200" placeholder="Keterangan transaksi"><button class="full" type="submit">+ SIMPAN TRANSAKSI</button></form><p class="note">Tanggal dan jam tersimpan otomatis. RRAK wajib mencantumkan barang yang dibeli dan langsung mengurangi saldo berjalan.</p></section>
+<section><h2>Ringkasan Keuangan</h2><div id="summary"></div><p class="note">Margin di sini adalah selisih pemasukan dengan pengeluaran yang dicatat (termasuk RRAK), bukan laba akuntansi final. Cicilan PayLater memengaruhi saldo dan utang, tetapi bukan biaya operasional tambahan jika pembelian sudah dicatat sebagai pengeluaran.</p></section>
+<section><h2>Riwayat Transaksi</h2><label>FILTER JENIS</label><select id="filter"><option value="semua">Semua</option><option value="modal">Modal</option><option value="paylater">PayLater</option><option value="masuk">Pemasukan</option><option value="keluar">Pengeluaran</option><option value="rrak">RRAK</option></select><input id="search" placeholder="Cari keterangan atau kategori"><div class="scroll"><table><thead><tr><th>Tanggal & Jam</th><th>Jenis</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Aksi</th></tr></thead><tbody id="history"></tbody></table></div></section>
+<section><h2>Export & Backup</h2><div class="buttons"><button id="excel">📊 KIRIM KE EXCEL</button><button id="backup" class="gray">BACKUP JSON</button><button id="restore" class="gray">IMPORT BACKUP</button><button id="clear" class="red">HAPUS SEMUA</button></div><input type="file" id="file" accept=".json,application/json" hidden><p class="note">Tombol Excel mengunduh file CSV yang bisa dibuka di Microsoft Excel atau Google Sheets, berisi tanggal, jam, semua transaksi dan ringkasan. Data tetap tersimpan di browser ini. Gunakan Backup JSON untuk memindahkan data ke HP lain.</p></section></main>
+<script>
+const KEY='monitoring_keuangan_shopee_v1';let data;try{data=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}if(!data||!Array.isArray(data.transaksi))data={transaksi:[],rrak:[]};if(!Array.isArray(data.rrak))data.rrak=[];
+const types={modal:['Modal Awal','Modal Tambahan'],paylater:['Modal Pinjaman PayLater','Pencairan PayLater'],masuk:['Penjualan Shopee','Pencairan Saldo Shopee','Pemasukan Lainnya'],keluar:['Belanja Stok','Biaya Shopee','Iklan','Packing/Kardus/Bubble','Ongkir','Cicilan PayLater','Pengeluaran Lainnya'],rrak:['Kebutuhan RRAK']};let current='modal';const el=id=>document.getElementById(id);const rp=n=>'Rp'+Number(n||0).toLocaleString('id-ID');const fmt=d=>new Date(d).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function all(){return [...data.transaksi,...data.rrak.map(x=>({...x,jenis:'rrak',kategori:'Kebutuhan RRAK'}))].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp))}
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function choose(t){current=t;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.type===t));el('kategori').innerHTML=types[t].map(x=>'<option>'+x+'</option>').join('');el('ketlabel').textContent=t==='rrak'?'BELI APA / KETERANGAN':'KETERANGAN';el('keterangan').placeholder=t==='rrak'?'Contoh: Beli lakban':'Keterangan transaksi';el('keterangan').required=t==='rrak'}
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>choose(b.dataset.type)));
+el('form').addEventListener('submit',e=>{e.preventDefault();const nominal=Number(el('nominal').value),ket=el('keterangan').value.trim();if(!Number.isFinite(nominal)||nominal<=0)return alert('Nominal harus lebih dari nol');if(current==='rrak'&&!ket)return alert('Isi keterangan beli apa');const item={id:Date.now()+Math.random(),timestamp:new Date().toISOString(),jenis:current,kategori:el('kategori').value,keterangan:ket||'-',nominal};if(current==='rrak')data.rrak.unshift(item);else data.transaksi.unshift(item);el('form').reset();choose(current);save();alert('Transaksi berhasil disimpan')});
+function calc(){let modal=0,pay=0,masuk=0,keluar=0,rrak=0,cicilan=0;for(const x of data.transaksi){const n=Number(x.nominal)||0;if(x.jenis==='modal')modal+=n;else if(x.jenis==='paylater')pay+=n;else if(x.jenis==='masuk')masuk+=n;else if(x.jenis==='keluar'){keluar+=n;if(x.kategori==='Cicilan PayLater')cicilan+=n}}for(const x of data.rrak)rrak+=Number(x.nominal)||0;return {modal,pay,masuk,keluar,rrak,cicilan,total:keluar+rrak,saldo:modal+pay+masuk-keluar-rrak,margin:masuk-(keluar-cicilan)-rrak,sisaPay:Math.max(0,pay-cicilan)}}
+function render(){
+ const c=calc(),cards=[['MODAL AWAL',c.modal],['MODAL PAYLATER',c.pay],['TOTAL PEMASUKAN',c.masuk],['TOTAL PENGELUARAN',c.total],['KEBUTUHAN RRAK',c.rrak],['TOTAL MARGIN',c.margin],['SALDO BERJALAN',c.saldo],['SISA PAYLATER',c.sisaPay]];
+ el('cards').innerHTML=cards.map(([name,val])=>`<div class="card"><small>${name}</small><strong>${rp(val)}</strong></div>`).join('');
+ const summary=[['Modal Sendiri',rp(c.modal)],['Pinjaman PayLater',rp(c.pay)],['Pemasukan',rp(c.masuk)],['Pengeluaran Non-RRAK',rp(c.keluar)],['Kebutuhan RRAK',rp(c.rrak)],['Total Uang Keluar',rp(c.total)],['Cicilan PayLater Dibayar',rp(c.cicilan)],['Margin (estimasi)',rp(c.margin)],['Margin %',c.masuk?(100*c.margin/c.masuk).toFixed(2)+'%':'0%'],['Saldo Berjalan',rp(c.saldo)],['Sisa PayLater',rp(c.sisaPay)]];
+ el('summary').innerHTML=summary.map(([a,b])=>`<div class="line"><span>${a}</span><b>${b}</b></div>`).join('');
+ const f=el('filter').value,q=el('search').value.toLowerCase();
+ const rows=all().filter(x=>(f==='semua'||x.jenis===f)&&((x.keterangan||'')+' '+(x.kategori||'')).toLowerCase().includes(q));
+ const totalFilter=rows.reduce((a,x)=>a+(Number(x.nominal)||0),0);
+ el('filterSummary').innerHTML=`Filter: <b>${f==='semua'?'SEMUA':f.toUpperCase()}</b> &nbsp;|&nbsp; ${rows.length} transaksi &nbsp;|&nbsp; Total: <b>${rp(totalFilter)}</b>`;
+ el('history').innerHTML=rows.length?rows.map(x=>`<tr><td>${fmt(x.timestamp)}</td><td>${esc(x.jenis.toUpperCase())}</td><td>${esc(x.kategori)}</td><td>${esc(x.keterangan)}</td><td>${rp(x.nominal)}</td><td><button data-id="${x.id}" data-type="${x.jenis}" class="red">Hapus</button></td></tr>`).join(''):'<tr><td colspan="6">Belum ada transaksi</td></tr>';
+}
+el('history').addEventListener('click',e=>{const b=e.target.closest('button[data-id]');if(!b||!confirm('Hapus transaksi ini?'))return;const key=b.dataset.type==='rrak'?'rrak':'transaksi';data[key]=data[key].filter(x=>String(x.id)!==b.dataset.id);save()});el('filter').onchange=render;el('search').oninput=render;
+function download(content,name,mime){const url=URL.createObjectURL(new Blob([content],{type:mime})),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
+// Excel-readable CSV: BOM for Unicode, semicolon delimiter for Indonesian Excel.
+function csvCell(v){let s=String(v??'');if(/^[=+@\-\t\r]/.test(s)&&typeof v==='string')s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
+function xmlEsc(v){
+ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+function xlsCell(v,type){
+ if(type==='Number') return `<Cell><Data ss:Type="Number">${Number(v)||0}</Data></Cell>`;
+ return `<Cell><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`;
+}
+function exportExcel(){
+ const rows=all(),c=calc(),f=el('filter').value,q=el('search').value.toLowerCase();
+ const filtered=rows.filter(x=>(f==='semua'||x.jenis===f)&&((x.keterangan||'')+' '+(x.kategori||'')).toLowerCase().includes(q));
+ const out=[];
+ out.push(`<Row>${xlsCell('MONITORING KEUANGAN SHOPEE')}</Row>`);
+ out.push(`<Row>${xlsCell('Tanggal Export')}${xlsCell(fmt(new Date()))}</Row>`);
+ out.push(`<Row/>`);
+ out.push(`<Row>${xlsCell('RINGKASAN KEUANGAN')}${xlsCell('NOMINAL (Rp)')}</Row>`);
+ [
+  ['Modal Awal / Tambahan',c.modal],['Modal PayLater',c.pay],['Total Pemasukan',c.masuk],
+  ['Pengeluaran Non-RRAK',c.keluar],['Kebutuhan RRAK',c.rrak],['Total Pengeluaran Termasuk RRAK',c.total],
+  ['Cicilan PayLater',c.cicilan],['Margin Estimasi',c.margin],['Saldo Berjalan',c.saldo],['Sisa PayLater',c.sisaPay]
+ ].forEach(x=>out.push(`<Row>${xlsCell(x[0])}${xlsCell(x[1],'Number')}</Row>`));
+ out.push(`<Row/>`);
+ out.push(`<Row>${xlsCell('TANGGAL')}${xlsCell('JAM')}${xlsCell('JENIS')}${xlsCell('KATEGORI')}${xlsCell('KETERANGAN')}${xlsCell('NOMINAL (Rp)','String')}</Row>`);
+ filtered.forEach(x=>{
+  const d=new Date(x.timestamp);
+  out.push(`<Row>${xlsCell(d.toLocaleDateString('id-ID'))}${xlsCell(d.toLocaleTimeString('id-ID'))}${xlsCell(x.jenis.toUpperCase())}${xlsCell(x.kategori)}${xlsCell(x.keterangan)}${xlsCell(x.nominal,'Number')}</Row>`);
+ });
+ const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Worksheet ss:Name="Laporan Keuangan"><Table>${out.join('')}</Table></Worksheet>
+</Workbook>`;
+ download(xml,'laporan-keuangan-shopee-'+new Date().toISOString().slice(0,10)+'.xls','application/vnd.ms-excel;charset=utf-8');
+}
+el('excel').onclick=exportExcel;el('backup').onclick=()=>download(JSON.stringify(data,null,2),'backup-keuangan-shopee.json','application/json');el('restore').onclick=()=>el('file').click();el('file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const obj=JSON.parse(await file.text());if(!Array.isArray(obj.transaksi)||!Array.isArray(obj.rrak))throw Error('format');if(confirm('Import backup akan mengganti data sekarang. Lanjutkan?')){data=obj;save();alert('Backup berhasil diimport')}}catch(err){alert('File backup tidak valid')}e.target.value=''};el('clear').onclick=()=>{if(confirm('Yakin hapus SEMUA transaksi? Sebaiknya backup dulu.')){data={transaksi:[],rrak:[]};save()}};choose('modal');render();function tick(){el('clock').textContent='Waktu sekarang: '+fmt(new Date())}tick();setInterval(tick,1000);
+</script></body></html>
