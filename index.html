@@ -1,9 +1,10 @@
+Website by: putra ragiel
 <!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Penjualan Shopee</title>
+<title>Monitoring Keuangan Shopee</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#f3f5f8;font-family:Arial,sans-serif;color:#202a33}
@@ -14,7 +15,7 @@ section,.card{background:#fff;border-radius:13px;padding:14px;margin-bottom:12px
 h2{font-size:16px;margin:0 0 12px}
 .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .card{margin:0}.card small{display:block;color:#68737d;font-size:11px}.card b{display:block;margin-top:6px;font-size:16px}
-.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
 button,select,input{width:100%;padding:11px;border-radius:9px;font-size:14px}
 button{border:0;background:#ee4d2d;color:#fff;font-weight:bold}
 button.gray{background:#66717c}.red{background:#d63b35!important}
@@ -49,23 +50,27 @@ th{background:#f5f7f8}
 </head>
 <body>
 <header>
-<h1>PENJUALAN SHOPEE</h1>
+<h1>MONITORING SHOPEE</h1>
 <small id="clock"></small>
 </header>
 <main>
 <div class="cards" id="cards"></div>
 
-<section id="inputSection">
-<h2 id="inputTitle">Input Transaksi</h2>
 <div class="tabs" id="tabs">
 <button data-type="modal">Modal</button>
 <button data-type="paylater">PayLater</button>
 <button data-type="masuk">Pemasukan</button>
 <button data-type="keluar">Pengeluaran</button>
 <button data-type="rrak">RRAK</button>
+<button data-type="riwayat">Riwayat</button>
 </div>
+<section id="inputSection">
+<h2 id="inputTitle">Input Transaksi</h2>
+
 <form id="form">
 <label>KATEGORI</label><select id="kategori"></select>
+<label>SALDO ASAL / TUJUAN DANA</label>
+<select id="saldoJenis"><option value="BCA">BCA</option><option value="ShopeePay">ShopeePay</option><option value="Tunai">Tunai</option></select>
 <label>NOMINAL (Rp)</label><input id="nominal" type="number" min="1" required>
 <div id="ketWrap" style="display:none"><label>KETERANGAN / BELI APA</label><input id="keterangan" maxlength="200"></div>
 <button id="saveBtn" class="full" type="submit">+ SIMPAN TRANSAKSI</button>
@@ -74,18 +79,19 @@ th{background:#f5f7f8}
 <div id="editNotice" class="notice" style="display:none">Mode edit aktif. Ubah data lalu tekan <b>SIMPAN PERUBAHAN</b>.</div>
 </section>
 
-<section>
+<section id="historySection" style="display:none">
 <h2>Riwayat Transaksi</h2>
 <label>FILTER JENIS</label>
 <select id="filter">
-<option value="semua">Semua</option><option value="modal">Modal</option>
-<option value="paylater">PayLater</option><option value="masuk">Pemasukan</option>
-<option value="keluar">Pengeluaran</option><option value="rrak">RRAK</option>
+<option value="">Pilih jenis transaksi</option>
+<option value="modal">Modal</option><option value="paylater">PayLater</option>
+<option value="masuk">Pemasukan</option><option value="keluar">Pengeluaran</option>
+<option value="rrak">RRAK</option>
 </select>
 <input id="search" placeholder="Cari kategori / keterangan" style="margin-top:7px">
 <div id="filterInfo" class="notice">Pilih transaksi untuk Edit atau Hapus.</div>
 <div class="table">
-<table><thead><tr><th>Tanggal & Jam</th><th>Jenis</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Aksi</th></tr></thead>
+<table><thead><tr><th>Tanggal & Jam</th><th>Jenis</th><th>Kategori</th><th>Keterangan</th><th>Saldo</th><th>Nominal</th><th>Aksi</th></tr></thead>
 <tbody id="history"></tbody></table>
 </div>
 </section>
@@ -105,8 +111,8 @@ th{background:#f5f7f8}
 <script>
 const KEY='monitoring_keuangan_shopee_v1';
 const CATS={
- modal:['Modal Awal','Modal Tambahan'],
- paylater:['Modal Pinjaman PayLater','Pencairan PayLater'],
+ modal:['Modal Utama','Modal Pinjaman','Pengurangan Modal'],
+ paylater:['Pencairan PayLater'],
  masuk:['Penjualan Shopee','Pencairan Saldo Shopee','Pemasukan Lainnya'],
  keluar:['Belanja Stok','Biaya Shopee','Iklan','Packing/Kardus/Bubble','Ongkir','Cicilan PayLater','Pengeluaran Lainnya'],
  rrak:['Kebutuhan RRAK']
@@ -126,7 +132,17 @@ function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
 function all(){return [...data.transaksi,...data.rrak]}
 
 function choose(type){
+ if(type==='riwayat'){
+   currentType='riwayat';
+   $('inputSection').style.display='none';
+   $('historySection').style.display='block';
+   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.type==='riwayat'));
+   render();
+   return;
+ }
  currentType=type;
+ $('inputSection').style.display='block';
+ $('historySection').style.display='none';
  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.type===type));
  $('kategori').innerHTML=CATS[type].map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
  $('ketWrap').style.display=type==='rrak'?'block':'none';
@@ -150,6 +166,7 @@ $('form').onsubmit=function(e){
    item.kategori=$('kategori').value;
    item.nominal=n;
    item.keterangan=k;
+   item.saldo=$('saldoJenis').value;
    editingId=null;editingType=null;
    $('inputTitle').textContent='Input Transaksi';
    $('saveBtn').textContent='+ SIMPAN TRANSAKSI';
@@ -158,7 +175,7 @@ $('form').onsubmit=function(e){
    $('form').reset();choose(currentType);save();
    alert('Perubahan berhasil disimpan.');
  }else{
-   const item={id:String(Date.now()+Math.random()),timestamp:new Date().toISOString(),jenis:currentType,kategori:$('kategori').value,keterangan:k,nominal:n};
+   const item={id:String(Date.now()+Math.random()),timestamp:new Date().toISOString(),jenis:currentType,kategori:$('kategori').value,keterangan:k,nominal:n,saldo:$('saldoJenis').value};
    if(currentType==='rrak')data.rrak.unshift(item);else data.transaksi.unshift(item);
    $('form').reset();choose(currentType);save();
  }
@@ -178,10 +195,11 @@ function editTransaction(id,type){
  const item=arr.find(x=>String(x.id)===String(id));
  if(!item)return alert('Transaksi tidak ditemukan.');
  editingId=String(id);editingType=type;
- currentType=type;choose(type);
+ choose(type);
  $('kategori').value=item.kategori;
  $('nominal').value=item.nominal;
- $('keterangan').value=item.keterangan;
+ $('keterangan').value=item.keterangan||'';
+ $('saldoJenis').value=item.saldo||'BCA';
  $('inputTitle').textContent='EDIT TRANSAKSI';
  $('saveBtn').textContent='SIMPAN PERUBAHAN';
  $('cancelBtn').style.display='block';
@@ -200,36 +218,59 @@ function deleteTransaction(id,type){
 }
 
 function calc(){
- let modal=0,pay=0,masuk=0,keluar=0,rrak=0,cicilan=0;
+ let modalUtama=0,modalPinjaman=0,pay=0,masuk=0,keluar=0,rrak=0,cicilan=0;
+ let bca=0,shopeepay=0,tunai=0;
+ const move=(x,amount)=>{
+  const akun=x.saldo||'BCA';
+  if(akun==='ShopeePay') shopeepay+=amount;
+  else if(akun==='Tunai') tunai+=amount;
+  else bca+=amount;
+ };
  data.transaksi.forEach(x=>{
-  let n=Number(x.nominal)||0;
-  if(x.jenis==='modal')modal+=n;
-  else if(x.jenis==='paylater')pay+=n;
-  else if(x.jenis==='masuk')masuk+=n;
-  else if(x.jenis==='keluar'){keluar+=n;if(x.kategori==='Cicilan PayLater')cicilan+=n}
+  const n=Number(x.nominal)||0;
+  if(x.jenis==='modal'){
+   if(x.kategori==='Modal Pinjaman') modalPinjaman+=n;
+   else if(x.kategori==='Pengurangan Modal') modalUtama-=n;
+   else modalUtama+=n;
+   move(x,x.kategori==='Pengurangan Modal'?-n:n);
+  } else if(x.jenis==='paylater'){
+   pay+=n; move(x,n);
+  } else if(x.jenis==='masuk'){
+   masuk+=n; move(x,n);
+  } else if(x.jenis==='keluar'){
+   keluar+=n; move(x,-n);
+   if(x.kategori==='Cicilan PayLater')cicilan+=n;
+  }
  });
- data.rrak.forEach(x=>rrak+=Number(x.nominal)||0);
- return {modal,pay,masuk,keluar,rrak,total:keluar+rrak,cicilan,
- margin:masuk-(keluar+rrak),saldo:modal+pay+masuk-keluar-rrak,
+ data.rrak.forEach(x=>{const n=Number(x.nominal)||0;rrak+=n;move(x,-n)});
+ return {modal:modalUtama,modalUtama,modalPinjaman,pay,masuk,keluar,rrak,total:keluar+rrak,cicilan,
+ margin:masuk-(keluar+rrak),bca,shopeepay,tunai,saldo:bca+shopeepay+tunai,
  sisaPay:Math.max(0,pay-cicilan)};
 }
 
 function render(){
  const c=calc();
- const cards=[['MODAL AWAL',c.modal],['MODAL PAYLATER',c.pay],['TOTAL PEMASUKAN',c.masuk],['TOTAL PENGELUARAN',c.total],['KEBUTUHAN RRAK',c.rrak],['TOTAL MARGIN',c.margin],['SALDO BERJALAN',c.saldo],['SISA PAYLATER',c.sisaPay]];
+ const cards=[['MODAL UTAMA (BERSIH)',c.modalUtama],['MODAL PINJAMAN',c.modalPinjaman],['MODAL PAYLATER',c.pay],['SALDO BCA',c.bca],['SALDO SHOPEEPAY',c.shopeepay],['SALDO TUNAI',c.tunai],['TOTAL PEMASUKAN',c.masuk],['TOTAL PENGELUARAN',c.total],['KEBUTUHAN RRAK',c.rrak],['TOTAL MARGIN',c.margin],['SALDO BERJALAN (BCA + SHOPEEPAY + TUNAI)',c.saldo],['SISA PAYLATER',c.sisaPay]];
  $('cards').innerHTML=cards.map(x=>'<div class="card"><small>'+x[0]+'</small><b>'+rp(x[1])+'</b></div>').join('');
  const f=$('filter').value,q=$('search').value.toLowerCase();
- const rows=all().filter(x=>(f==='semua'||x.jenis===f)&&((x.kategori+' '+x.keterangan).toLowerCase().includes(q)));
- $('filterInfo').innerHTML='Filter: <b>'+f.toUpperCase()+'</b> &nbsp;|&nbsp; '+rows.length+' transaksi &nbsp;|&nbsp; Total <b>'+rp(rows.reduce((a,x)=>a+Number(x.nominal||0),0))+'</b>';
- $('history').innerHTML=rows.length?rows.map(x=>`
+ const rows=f?all().filter(x=>{
+   let jenisMatch = f==='modal' ? (x.jenis==='modal') : x.jenis===f;
+   return jenisMatch && ((x.kategori+' '+x.keterangan).toLowerCase().includes(q));
+ }):[];
+ $('filterInfo').innerHTML=f
+  ? 'Filter: <b>'+f.toUpperCase()+'</b> &nbsp;|&nbsp; '+rows.length+' transaksi &nbsp;|&nbsp; Total <b>'+rp(rows.reduce((a,x)=>a+Number(x.nominal||0),0))+'</b>'
+  : 'Pilih jenis transaksi untuk menampilkan riwayat.';
+ $('history').innerHTML=!f
+  ? '<tr><td colspan="7" style="text-align:center;padding:20px">Pilih jenis transaksi terlebih dahulu</td></tr>'
+  : rows.length?rows.map(x=>`
  <tr>
  <td>${fmt(x.timestamp)}</td><td>${esc(x.jenis.toUpperCase())}</td><td>${esc(x.kategori)}</td>
- <td>${esc(x.keterangan)}</td><td><b>${rp(x.nominal)}</b></td>
+ <td>${esc(x.keterangan||"-")}</td><td>${esc(x.saldo||"BCA")}</td><td><b>${rp(x.nominal)}</b></td>
  <td><div class="actions">
  <button type="button" onclick="editTransaction('${String(x.id).replace(/'/g,"\\'")}','${x.jenis}')">EDIT</button>
  <button type="button" class="red" onclick="deleteTransaction('${String(x.id).replace(/'/g,"\\'")}','${x.jenis}')">HAPUS</button>
  </div></td>
- </tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:20px">Belum ada transaksi</td></tr>';
+ </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;padding:20px">Belum ada transaksi</td></tr>';
 }
 $('filter').onchange=render;$('search').oninput=render;
 function tick(){$('clock').textContent='Waktu sekarang: '+fmt(new Date())} tick();setInterval(tick,1000);
@@ -240,13 +281,13 @@ $('restore').onclick=()=>$('file').click();
 $('file').onchange=async e=>{try{let x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.transaksi)||!Array.isArray(x.rrak))throw 0;data=x;save();alert('Backup berhasil diimport')}catch{alert('Backup tidak valid')}};
 
 $('excel').onclick=()=>{
- let rows=all(),out=[['TANGGAL','JAM','JENIS','KATEGORI','KETERANGAN','NOMINAL']];
- rows.forEach(x=>{let d=new Date(x.timestamp);out.push([d.toLocaleDateString('id-ID'),d.toLocaleTimeString('id-ID'),x.jenis.toUpperCase(),x.kategori,x.keterangan,x.nominal])});
+ let rows=all(),out=[['TANGGAL','JAM','JENIS','KATEGORI','KETERANGAN','SALDO','NOMINAL']];
+ rows.forEach(x=>{let d=new Date(x.timestamp);out.push([d.toLocaleDateString('id-ID'),d.toLocaleTimeString('id-ID'),x.jenis.toUpperCase(),x.kategori,x.keterangan,x.saldo||'BCA',x.nominal])});
  let csv='\ufeff'+out.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
  let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='laporan-keuangan-shopee.csv';a.click();
 };
 
-choose('modal');render();
+$('filter').value='';choose('modal');render();
 </script>
 </body>
 </html>
